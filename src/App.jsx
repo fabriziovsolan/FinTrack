@@ -1,8 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { supabase } from "./supabase.js";
 import { sanitizeExpense, sanitizeIncome, sanitizeLoan, sanitizeCard } from "./security.js";
-import ImportModal from "./ImportModal.jsx";
-import { DistributionBar, PieSection, AIAdvisor } from "./DashboardAI.jsx";
+import { DistributionBar, PieSection } from "./DashboardAI.jsx";
 
 // ─── Bank detection ────────────────────────────────────────────────────────────
 const BANKS = [
@@ -286,25 +285,7 @@ export default function App() {
     if (error) { shout("Error al guardar", "error"); return; }
     setCards(p => [...p, rowToCard(data)]); setModal(null); shout("✅ Tarjeta agregada");
   };
-  const [showImport, setShowImport] = useState(false);
 
-  const handleImport = async (consumos, month) => {
-    if (!session) { setShowNudge(true); return; }
-    const rows = consumos.map(c => ({
-      user_id:      session.user.id,
-      card_id:      c.cardId,
-      description:  String(c.descripcion || "").slice(0, 150),
-      amount:       Math.abs(parseFloat(c.monto) || 0),
-      installments: Math.min(60, Math.max(1, parseInt(c.cuotas) || 1)),
-      date:         c.fecha || new Date().toISOString().split("T")[0],
-      month:        month,
-    }));
-    const { data, error } = await supabase.from("expenses").insert(rows).select();
-    if (error) throw new Error("Error al guardar los consumos");
-    setExpenses(p => [...data.map(rowToExpense), ...p]);
-    setShowImport(false);
-    shout(`✅ ${rows.length} consumo${rows.length!==1?"s":""} importado${rows.length!==1?"s":""}`);
-  };
 
   const delExpense = async (id) => { const {error}=await supabase.from("expenses").delete().eq("id",id); if(error){shout("Error","error");return;} setExpenses(p=>p.filter(e=>e.id!==id)); shout("🗑️ Eliminado"); };
   const delIncome  = async (id) => { const {error}=await supabase.from("income").delete().eq("id",id);   if(error){shout("Error","error");return;} setIncome(p=>p.filter(i=>i.id!==id));   shout("🗑️ Eliminado"); };
@@ -434,7 +415,6 @@ export default function App() {
           </div>
           <DistributionBar totIncome={totIncome} totExp={totExp} totLoans={totLoans} balance={balance}/>
           <PieSection totIncome={totIncome} totExp={totExp} totLoans={totLoans} balance={balance}/>
-          <AIAdvisor totIncome={totIncome} totExp={totExp} totLoans={totLoans} balance={balance} cards={cards} expByCard={expByCard} monthLabel={mLabel(selMonth)}/>
           <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
             <div className="card">
               <div style={{ fontWeight:700,marginBottom:18,fontSize:15 }}>Consumo por tarjeta</div>
@@ -453,7 +433,7 @@ export default function App() {
         {tab==="tarjetas" && <>
           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:28 }}>
             <div><h1 style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:26,fontWeight:800,marginBottom:4 }}>Tarjetas de Crédito</h1><p style={{ color:"#475569",fontSize:14 }}>{mLabel(selMonth)} · {monthExp.length} consumo{monthExp.length!==1?"s":""} · {ARS(totExp)} total</p></div>
-            <div style={{ display:"flex",gap:10 }}><button className="btn btn-g" onClick={()=>openModal("card")}>+ Nueva tarjeta</button><button className="btn btn-g" onClick={()=>{ if(!session){setShowNudge(true);return;} setShowImport(true); }} style={{ display:"flex",alignItems:"center",gap:6 }}>📄 Importar resumen</button><button className="btn btn-v" onClick={()=>openModal("expense")}>+ Agregar consumo</button></div>
+            <div style={{ display:"flex",gap:10 }}><button className="btn btn-g" onClick={()=>openModal("card")}>+ Nueva tarjeta</button><button className="btn btn-v" onClick={()=>openModal("expense")}>+ Agregar consumo</button></div>
           </div>
           <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:14,marginBottom:24 }}>
             {cards.length===0?<div className="card empty" style={{ gridColumn:"1/-1" }}><div style={{ fontSize:40,marginBottom:12 }}>💳</div><p style={{ marginBottom:16 }}>No tenés tarjetas</p><button className="btn btn-v" onClick={()=>openModal("card")}>Agregar tarjeta</button></div>
@@ -553,7 +533,6 @@ export default function App() {
 
       </div></div>}
 
-      {showImport && <ImportModal cards={cards} selMonth={selMonth} onImport={handleImport} onClose={()=>setShowImport(false)}/>}
       {showNudge && <SignupNudge onLogin={handleLogin} onClose={()=>setShowNudge(false)} loading={loginLoading}/>}
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={()=>setToast(null)}/>}
     </div>
